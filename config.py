@@ -19,6 +19,9 @@ MAX_CANDIDATES = int(os.getenv("MAX_CANDIDATES", "20"))  # Maximum candidates to
 # Performance configuration
 CACHE_VECTORS = os.getenv("CACHE_VECTORS", "True").lower() == "true"  # Enable/disable spaCy vector caching
 
+# Definition search configuration
+DEFINITION_SEARCH_MAX_LENGTH = int(os.getenv("DEFINITION_SEARCH_MAX_LENGTH", "15"))  # Max word length for definition-only searches
+
 # Fallback to file-based loading if database doesn't exist
 USE_DATABASE = Path(DB_PATH).exists() if DB_PATH else False
 

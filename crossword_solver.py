@@ -13,10 +13,28 @@ import csv
 import os
 import sqlite3
 from functools import lru_cache
+import unicodedata
 
 import config
 
 MAX_CANDIDATES = config.MAX_CANDIDATES
+
+def normalize_text(text: str, remove_accents: bool = False) -> str:
+    """Normalize text for matching.
+    
+    Args:
+        text: Input text to normalize
+        remove_accents: If True, remove accents for flexible matching
+    
+    Returns:
+        Normalized text in lowercase
+    """
+    text = text.lower()
+    if remove_accents:
+        # Normalize to NFD (decomposed form) and remove combining marks
+        nfd = unicodedata.normalize('NFD', text)
+        text = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+    return text
 
 @dataclass
 class Entry:
@@ -140,6 +158,12 @@ class DatabaseManager:
         if self.conn is None:
             return []
         
+        # Normalize wildcards: convert * to _ for internal consistency
+        pattern = pattern.replace('*', '_')
+        
+        # Convert to lowercase to match database storage
+        pattern = pattern.lower()
+        
         # Convert pattern to SQL LIKE pattern
         # Our pattern uses _ for unknown letters, SQL LIKE uses _ for single char
         # We need to escape SQL special chars (% and literal _) first
@@ -154,9 +178,10 @@ class DatabaseManager:
         
         cursor = self.conn.cursor()
         # Use LIKE with ESCAPE for pattern matching (in case pattern contains %)
+        # Use LOWER() to ensure case-insensitive matching
         cursor.execute("""
             SELECT word FROM words 
-            WHERE length = ? AND word LIKE ? ESCAPE '\\'
+            WHERE length = ? AND LOWER(word) LIKE ? ESCAPE '\\'
             LIMIT ?
         """, (pattern_length, sql_pattern, MAX_CANDIDATES))
         
@@ -207,6 +232,12 @@ class WordMatcher:
 
     def match_pattern(self, pattern: str) -> List[str]:
         """Match pattern using database if available, otherwise use regex."""
+        # Normalize wildcards: convert * to _ for internal consistency
+        pattern = pattern.replace('*', '_')
+        
+        # Convert to lowercase to match database storage
+        pattern = pattern.lower()
+        
         if self.use_database:
             return self.db_manager.match_pattern(pattern)
         else:
@@ -214,7 +245,7 @@ class WordMatcher:
             if self.word_list is None:
                 return []
             regex_pattern = pattern.replace('_', '.')
-            regex = re.compile(f'^{regex_pattern}$')
+            regex = re.compile(f'^{regex_pattern}$', re.IGNORECASE)
             matches = [word for word in self.word_list if regex.match(word) and len(word) > 2 and word.isalpha()]
             return matches[:MAX_CANDIDATES]
 
@@ -415,6 +446,174 @@ class CrosswordSolver:
             for i in range(top_n):
                 word, similarity, best_segment, definicion, _, fuente = results[i]
                 context = self.clue_analyzer.get_web_context(entry.clue, word)
+                results[i] = (word, similarity, best_segment, definicion, context, fuente)
+        
+        return results
+    
+    def _detect_input_type(self, input_text: str) -> str:
+        """Auto-detect if input is a pattern or definition.
+        
+        Returns:
+            'pattern' if input looks like a pattern (letters/wildcards, no spaces)
+            'definition' if input looks like natural language (contains spaces)
+        """
+        input_text = input_text.strip()
+        if not input_text:
+            return 'pattern'
+        
+        # If contains spaces, treat as definition
+        if ' ' in input_text:
+            return 'definition'
+        
+        # If contains only letters, underscores, asterisks, and no spaces, treat as pattern
+        if all(c.isalpha() or c in '_*' for c in input_text):
+            return 'pattern'
+        
+        # Default to definition for natural language
+        return 'definition'
+    
+    def solve_by_definition_only(self, clue: str, max_length: Optional[int] = None) -> list:
+        """Search words by definition only, without pattern constraint.
+        
+        Args:
+            clue: Definition or clue text to search for
+            max_length: Optional maximum word length to limit search
+        
+        Returns:
+            List of tuples: (word, similarity_score, best_segment, definition, context, source)
+        """
+        if not clue or not clue.strip():
+            return []
+        
+        clue = clue.strip().lower()
+        results = []
+        
+        # Query database for words
+        if self.db_manager and self.db_manager.conn:
+            cursor = self.db_manager.conn.cursor()
+            
+            # First, try to find words whose definitions contain the clue word
+            # This gives us direct matches (e.g., words whose definitions mention "reptil")
+            priority_candidates = []
+            max_word_length = max_length if max_length and max_length > 0 else getattr(config, 'DEFINITION_SEARCH_MAX_LENGTH', 15)
+            
+            # Search for words whose definitions contain the clue
+            clue_words = clue.split()
+            for clue_word in clue_words:
+                if len(clue_word) < 3:  # Skip very short words
+                    continue
+                # Search in RAE definitions
+                query = """
+                    SELECT DISTINCT w.word FROM words w
+                    JOIN rae_definitions r ON w.word = r.word
+                    WHERE w.length >= 3 AND w.length <= ? 
+                    AND LOWER(r.definition) LIKE ?
+                    LIMIT ?
+                """
+                cursor.execute(query, (max_word_length, f'%{clue_word}%', config.MAX_CANDIDATES * 5))
+                priority_candidates.extend([row[0] for row in cursor.fetchall()])
+                
+                # Search in CSV definitions
+                query = """
+                    SELECT DISTINCT w.word FROM words w
+                    JOIN csv_definitions c ON w.word = c.word
+                    WHERE w.length >= 3 AND w.length <= ? 
+                    AND LOWER(c.definition) LIKE ?
+                    LIMIT ?
+                """
+                cursor.execute(query, (max_word_length, f'%{clue_word}%', config.MAX_CANDIDATES * 5))
+                priority_candidates.extend([row[0] for row in cursor.fetchall()])
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            priority_candidates = [w for w in priority_candidates if not (w in seen or seen.add(w))]
+            
+            # Get a diverse sample of other words across different lengths
+            candidate_words = []
+            words_per_length_range = (config.MAX_CANDIDATES * 10) // 5  # Distribute across ~5 length ranges
+            
+            for length_range_start in range(3, min(max_word_length + 1, 18), 3):
+                length_range_end = min(length_range_start + 2, max_word_length)
+                query = "SELECT word FROM words WHERE length >= ? AND length <= ? ORDER BY RANDOM() LIMIT ?"
+                cursor.execute(query, (length_range_start, length_range_end, words_per_length_range))
+                candidate_words.extend([row[0] for row in cursor.fetchall()])
+            
+            # If we didn't get enough words, fill with random words
+            if len(candidate_words) < config.MAX_CANDIDATES * 10:
+                remaining = (config.MAX_CANDIDATES * 10) - len(candidate_words)
+                query = "SELECT word FROM words WHERE length >= 3 AND length <= ? ORDER BY RANDOM() LIMIT ?"
+                cursor.execute(query, (max_word_length, remaining))
+                candidate_words.extend([row[0] for row in cursor.fetchall()])
+            
+            # Combine priority candidates first, then other candidates
+            all_candidates = priority_candidates + [w for w in candidate_words if w not in priority_candidates]
+            candidate_words = all_candidates[:config.MAX_CANDIDATES * 10]
+        else:
+            # Fallback: use word_list if available
+            if self.word_list is None:
+                return []
+            
+            # Filter by length if specified
+            max_word_length = max_length if max_length and max_length > 0 else getattr(config, 'DEFINITION_SEARCH_MAX_LENGTH', 15)
+            all_candidates = [w for w in self.word_list if 3 <= len(w) <= max_word_length]
+            
+            # Sample diverse words across different lengths
+            import random
+            # Group by length
+            words_by_length = {}
+            for word in all_candidates:
+                length = len(word)
+                if length not in words_by_length:
+                    words_by_length[length] = []
+                words_by_length[length].append(word)
+            
+            # Sample from each length group
+            candidate_words = []
+            words_per_length = (config.MAX_CANDIDATES * 10) // max(len(words_by_length), 1)
+            for length_group in words_by_length.values():
+                sample = random.sample(length_group, min(words_per_length, len(length_group)))
+                candidate_words.extend(sample)
+            
+            # If still not enough, add random words
+            if len(candidate_words) < config.MAX_CANDIDATES * 10:
+                remaining = (config.MAX_CANDIDATES * 10) - len(candidate_words)
+                additional = random.sample(all_candidates, min(remaining, len(all_candidates)))
+                candidate_words.extend(additional)
+        
+        # Score each word against the clue
+        for word in candidate_words:
+            if not self.clue_analyzer.has_vector(word):
+                continue
+            similarity, best_segment, definicion = self.clue_analyzer.calculate_similarity(clue, word)
+            
+            # Boost score if clue word appears in definition
+            boost = 0.0
+            if definicion:
+                definicion_lower = definicion.lower()
+                for clue_word in clue.split():
+                    if len(clue_word) >= 3 and clue_word in definicion_lower:
+                        boost += 0.2  # Significant boost for direct matches
+                        break
+            
+            # Boost score if word contains clue or vice versa
+            if clue in word.lower() or word.lower() in clue:
+                boost += 0.15
+            
+            final_score = similarity + boost
+            results.append((word, final_score, best_segment, definicion, None, 'definition_search'))
+        
+        # Sort by similarity score
+        results.sort(key=lambda x: x[1], reverse=True)
+        
+        # Limit to top N results
+        results = results[:config.MAX_CANDIDATES]
+        
+        # Fetch web context for top results if enabled
+        if config.ENABLE_WEB_SEARCHES:
+            top_n = min(config.WEB_SEARCH_TOP_N, len(results))
+            for i in range(top_n):
+                word, similarity, best_segment, definicion, _, fuente = results[i]
+                context = self.clue_analyzer.get_web_context(clue, word)
                 results[i] = (word, similarity, best_segment, definicion, context, fuente)
         
         return results

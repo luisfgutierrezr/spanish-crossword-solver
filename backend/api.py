@@ -40,9 +40,14 @@ def get_solver():
 
 # Request/Response models
 class SolveRequest(BaseModel):
-    pattern: str
+    pattern: Optional[str] = None
     length: Optional[int] = None
     clue: Optional[str] = ""
+    search_mode: Optional[str] = None  # 'pattern' or 'definition'
+
+class DefinitionSearchRequest(BaseModel):
+    clue: str
+    max_length: Optional[int] = None
 
 class WordResult(BaseModel):
     word: str
@@ -76,10 +81,18 @@ async def solve_crossword(request: SolveRequest):
         SolveResponse with list of matching words sorted by relevance
     """
     try:
-        # Validate pattern
-        pattern = request.pattern.strip().upper()
+        # Normalize wildcards: convert * to _ for consistency
+        # Convert to lowercase to match database storage (words stored in lowercase)
+        pattern = ""
+        if request.pattern:
+            pattern = request.pattern.strip().lower().replace('*', '_')
+        
         if not pattern:
-            raise HTTPException(status_code=400, detail="Pattern cannot be empty")
+            # If only length provided, create pattern of underscores
+            if request.length and request.length > 0:
+                pattern = '_' * request.length
+            else:
+                raise HTTPException(status_code=400, detail="Either pattern or length must be provided")
         
         # If length is provided, validate pattern length matches
         if request.length and request.length > 0:
@@ -88,12 +101,6 @@ async def solve_crossword(request: SolveRequest):
             if known_chars > 0 and len(pattern.replace('_', '')) != request.length:
                 # If pattern has known chars, validate length
                 pass  # We'll use pattern as-is, length is just a hint
-        
-        # If only length provided, create pattern of underscores
-        if not pattern and request.length:
-            pattern = '_' * request.length
-        elif not pattern:
-            raise HTTPException(status_code=400, detail="Either pattern or length must be provided")
         
         # Get clue or use empty string
         clue = request.clue.strip() if request.clue else ""
@@ -108,8 +115,10 @@ async def solve_crossword(request: SolveRequest):
         # Format results
         word_results = []
         for word, score, best_segment, definition, context, source in results:
+            # Capitalize first letter but preserve accents
+            word_display = word.capitalize() if word else word
             word_results.append(WordResult(
-                word=word.upper(),
+                word=word_display,
                 score=round(score, 4),
                 definition=definition if definition else None,
                 source=source
@@ -127,6 +136,55 @@ async def solve_crossword(request: SolveRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error solving crossword: {str(e)}")
+
+@app.post("/api/solve-by-definition", response_model=SolveResponse)
+async def solve_by_definition(request: DefinitionSearchRequest):
+    """
+    Solve a crossword puzzle by definition only, without pattern constraint.
+    
+    Args:
+        request: DefinitionSearchRequest containing clue and optional max_length
+    
+    Returns:
+        SolveResponse with list of matching words sorted by relevance
+    """
+    try:
+        # Validate clue
+        clue = request.clue.strip()
+        if not clue:
+            raise HTTPException(status_code=400, detail="Clue cannot be empty")
+        
+        # Get max_length if provided
+        max_length = request.max_length if request.max_length and request.max_length > 0 else None
+        
+        # Solve by definition
+        solver = get_solver()
+        results = solver.solve_by_definition_only(clue, max_length)
+        
+        # Format results
+        word_results = []
+        for word, score, best_segment, definition, context, source in results:
+            # Capitalize first letter but preserve accents
+            word_display = word.capitalize() if word else word
+            word_results.append(WordResult(
+                word=word_display,
+                score=round(score, 4),
+                definition=definition if definition else None,
+                source=source
+            ))
+        
+        # Sort by score (already sorted, but ensure)
+        word_results.sort(key=lambda x: x.score, reverse=True)
+        
+        return SolveResponse(
+            pattern="",  # No pattern for definition-only search
+            results=word_results
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error solving by definition: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

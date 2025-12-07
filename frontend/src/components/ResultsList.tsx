@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Check, AlertCircle, Info, X } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Check, AlertCircle, Info, X, Filter, Download, Copy, ArrowUpDown } from 'lucide-react';
 
 interface WordResult {
   word: string;
@@ -8,13 +8,120 @@ interface WordResult {
   source: string;
 }
 
+type SearchMode = 'pattern' | 'definition';
+
 interface ResultsListProps {
   results: WordResult[];
   isSearching: boolean;
+  searchMode?: SearchMode;
 }
 
-export function ResultsList({ results, isSearching }: ResultsListProps) {
+type SortOption = 'score' | 'alphabetical' | 'length' | 'found';
+type FilterState = {
+  minLength: number;
+  maxLength: number;
+  showDefinitions: boolean;
+  sortBy: SortOption;
+};
+
+export function ResultsList({ results, isSearching, searchMode = 'pattern' }: ResultsListProps) {
   const [selectedDefinition, setSelectedDefinition] = useState<{ word: string; definition: string } | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Calculate min/max lengths from results
+  const lengthRange = useMemo(() => {
+    if (results.length === 0) return { min: 0, max: 20 };
+    const lengths = results.map(r => r.word.length);
+    return { min: Math.min(...lengths), max: Math.max(...lengths) };
+  }, [results]);
+
+  const [filters, setFilters] = useState<FilterState>({
+    minLength: 0,
+    maxLength: 20,
+    showDefinitions: true,
+    sortBy: searchMode === 'pattern' ? 'found' : 'score',
+  });
+
+  // Reset filters when search mode changes
+  useEffect(() => {
+    setFilters(prev => ({
+      ...prev,
+      sortBy: searchMode === 'pattern' ? 'found' : 'score',
+    }));
+  }, [searchMode]);
+
+  // Update filter range when results change
+  useEffect(() => {
+    if (results.length > 0) {
+      const range = {
+        min: Math.min(...results.map(r => r.word.length)),
+        max: Math.max(...results.map(r => r.word.length)),
+      };
+      setFilters(prev => ({
+        ...prev,
+        minLength: range.min,
+        maxLength: range.max,
+      }));
+    }
+  }, [results]);
+
+  // Apply filters and sorting
+  const filteredAndSortedResults = useMemo(() => {
+    let filtered = results;
+    
+    // Only apply length filter in definition mode (pattern mode already has fixed length)
+    if (searchMode === 'definition') {
+      filtered = results.filter(result => {
+        const len = result.word.length;
+        return len >= filters.minLength && len <= filters.maxLength;
+      });
+    }
+
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'alphabetical':
+          return a.word.localeCompare(b.word);
+        case 'length':
+          return a.word.length - b.word.length;
+        case 'found':
+          // Keep original order (found order)
+          return 0;
+        case 'score':
+        default:
+          return b.score - a.score;
+      }
+    });
+
+    return filtered;
+  }, [results, filters, searchMode]);
+
+  const copyToClipboard = () => {
+    const text = filteredAndSortedResults.map(r => r.word).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Resultados copiados al portapapeles');
+    }).catch(err => {
+      console.error('Error copying to clipboard:', err);
+    });
+  };
+
+  const downloadCSV = () => {
+    const csv = [
+      ['Palabra', 'Puntuación', 'Definición', 'Fuente'],
+      ...filteredAndSortedResults.map(r => [
+        r.word,
+        r.score.toString(),
+        r.definition || '',
+        r.source,
+      ]),
+    ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `crucigrama_resultados_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
   if (isSearching) {
     return (
       <div className="text-center py-16">
@@ -47,13 +154,112 @@ export function ResultsList({ results, isSearching }: ResultsListProps) {
         <h2 className="text-xl font-bold text-gray-900">
           Resultados Encontrados
         </h2>
-        <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-semibold">
-          {results.length} {results.length === 1 ? 'palabra' : 'palabras'}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm font-semibold">
+            {filteredAndSortedResults.length} {filteredAndSortedResults.length === 1 ? 'palabra' : 'palabras'}
+            {filteredAndSortedResults.length !== results.length && ` de ${results.length}`}
+          </span>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Filtros"
+          >
+            <Filter className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
       </div>
 
+      {/* Filter and Sort Controls */}
+      {showFilters && (
+        <div className="mb-5 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4">
+          <div className={`grid grid-cols-1 ${searchMode === 'definition' ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-4`}>
+            {/* Length filters - only show in definition mode */}
+            {searchMode === 'definition' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Longitud Mínima: {filters.minLength}
+                  </label>
+                  <input
+                    type="range"
+                    min={lengthRange.min}
+                    max={lengthRange.max}
+                    value={filters.minLength}
+                    onChange={(e) => setFilters({ ...filters, minLength: parseInt(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Longitud Máxima: {filters.maxLength}
+                  </label>
+                  <input
+                    type="range"
+                    min={lengthRange.min}
+                    max={lengthRange.max}
+                    value={filters.maxLength}
+                    onChange={(e) => setFilters({ ...filters, maxLength: parseInt(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+              </>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ordenar por
+              </label>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => setFilters({ ...filters, sortBy: e.target.value as SortOption })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+              >
+                {searchMode === 'pattern' ? (
+                  <>
+                    <option value="found">Orden encontrado</option>
+                    <option value="alphabetical">Alfabético</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="score">Puntuación</option>
+                    <option value="alphabetical">Alfabético</option>
+                    <option value="length">Longitud</option>
+                  </>
+                )}
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filters.showDefinitions}
+                onChange={(e) => setFilters({ ...filters, showDefinitions: e.target.checked })}
+                className="mr-2 text-amber-600 focus:ring-amber-500"
+              />
+              <span className="text-sm text-gray-700">Mostrar definiciones</span>
+            </label>
+            <div className="flex gap-2">
+              <button
+                onClick={copyToClipboard}
+                className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors flex items-center gap-2 text-sm font-medium"
+              >
+                <Copy className="w-4 h-4" />
+                Copiar
+              </button>
+              <button
+                onClick={downloadCSV}
+                className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors flex items-center gap-2 text-sm font-medium"
+              >
+                <Download className="w-4 h-4" />
+                CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {results.map((result, index) => (
+        {filteredAndSortedResults.map((result, index) => (
           <div
             key={index}
             onClick={() => result.definition && setSelectedDefinition({ word: result.word, definition: result.definition })}
@@ -79,7 +285,7 @@ export function ResultsList({ results, isSearching }: ResultsListProps) {
                 {result.word.length} letras
               </div>
               
-              {result.definition && (
+              {result.definition && filters.showDefinitions && (
                 <div className="mt-2 pt-2 border-t border-gray-200">
                   <div className="flex items-start gap-1">
                     <Info className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" />
@@ -89,6 +295,13 @@ export function ResultsList({ results, isSearching }: ResultsListProps) {
                   </div>
                   <p className="text-xs text-amber-600 mt-1 font-medium">
                     Haz clic para ver la definición completa
+                  </p>
+                </div>
+              )}
+              {result.definition && !filters.showDefinitions && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 italic">
+                    Definición oculta
                   </p>
                 </div>
               )}
