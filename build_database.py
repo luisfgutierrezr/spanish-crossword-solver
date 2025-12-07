@@ -38,8 +38,10 @@ def create_database():
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS csv_definitions (
-            word TEXT PRIMARY KEY,
-            definition TEXT NOT NULL
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            word TEXT NOT NULL,
+            definition TEXT NOT NULL,
+            UNIQUE(word, definition)
         )
     """)
     

@@ -174,14 +174,24 @@ class DatabaseManager:
         return row[0] if row else None
     
     def get_csv_definition(self, word: str) -> Optional[str]:
-        """Get CSV definition from database."""
+        """Get CSV definition from database. Returns all definitions combined if multiple exist."""
         if self.conn is None:
             return None
         
         cursor = self.conn.cursor()
         cursor.execute("SELECT definition FROM csv_definitions WHERE word = ?", (word.lower(),))
-        row = cursor.fetchone()
-        return row[0] if row else None
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return None
+        
+        # If multiple definitions, combine them with semicolon separator
+        definitions = [row[0] for row in rows]
+        if len(definitions) == 1:
+            return definitions[0]
+        else:
+            # Combine multiple definitions with " | " separator
+            return " | ".join(definitions)
     
     def close(self):
         """Close database connection."""
