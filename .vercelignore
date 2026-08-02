@@ -1,0 +1,14 @@
+venv
+.cursor
+.vscode
+.git
+__pycache__
+frontend/node_modules
+frontend/src
+frontend/dist
+diccionario_rae
+*.md
+.google-cookie
+.env
+app-design.md
+landing-page-design.md

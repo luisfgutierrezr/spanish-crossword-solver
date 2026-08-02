@@ -155,6 +155,38 @@ The backend provides a REST API endpoint:
 
 See http://localhost:8000/docs for interactive API documentation.
 
+## Deploy on Vercel
+
+This project deploys as a single Vercel app: FastAPI serves `/api/*`, and the Vite frontend is built into `public/`.
+
+### Prerequisites
+
+1. Commit `crossword_db.sqlite` (required at runtime; ~40 MB).
+2. Install the [Vercel CLI](https://vercel.com/docs/cli) and log in: `npx vercel login`
+
+### Deploy
+
+From the repo root:
+
+```bash
+npx vercel        # preview
+npx vercel --prod # production
+```
+
+Or import the GitHub repo in the [Vercel dashboard](https://vercel.com/new). Leave **Root Directory** as `.` (project root). Vercel detects FastAPI via `pyproject.toml` / `requirements.txt` and runs the frontend build from `[tool.vercel.scripts]`.
+
+### Recommended environment variables
+
+| Variable | Value | Why |
+|---|---|---|
+| `ENABLE_WEB_SEARCHES` | `false` | Avoids timeouts on serverless (web scraping is slow) |
+| `CORS_ORIGINS` | `https://your-domain.com` | Only needed for a custom domain (`.vercel.app` is already allowed) |
+
+### Notes
+
+- Cold starts can be slow the first time (spaCy model load). Later requests are faster with Fluid Compute.
+- If the deploy fails due to package size (spaCy + SQLite), host the API on [Railway](https://railway.app) / [Render](https://render.com) and set `VITE_API_URL` to that backend URL when building the frontend.
+
 ## Configuration
 
 You can customize the solver behavior by editing `config.py` or setting environment variables:

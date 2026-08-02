@@ -6,10 +6,12 @@ You can modify these settings to customize solver behavior.
 import os
 from pathlib import Path
 
-# Database configuration
-DB_PATH = os.getenv("DB_PATH", "crossword_db.sqlite")
+_ROOT = Path(__file__).resolve().parent
 
-# Web search configuration
+# Database configuration (absolute path so it works on Vercel serverless)
+DB_PATH = os.getenv("DB_PATH", str(_ROOT / "crossword_db.sqlite"))
+
+# Web search configuration — prefer False on Vercel to stay within function timeouts
 ENABLE_WEB_SEARCHES = os.getenv("ENABLE_WEB_SEARCHES", "True").lower() == "true"
 WEB_SEARCH_TOP_N = int(os.getenv("WEB_SEARCH_TOP_N", "3"))  # Number of top results to search web for
 

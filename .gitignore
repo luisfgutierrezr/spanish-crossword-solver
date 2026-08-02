@@ -6,12 +6,18 @@ __pycache__
 *.sqlite
 *.sqlite3
 *.db
+!crossword_db.sqlite
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/*.log
+
+# Vercel / build output
+.vercel
+public/*
+!public/.gitkeep
 
 # IDE
 .idea/

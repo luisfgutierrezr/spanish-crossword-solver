@@ -22,7 +22,10 @@ interface SearchHistoryItem {
   timestamp: number;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Empty string in production = same-origin (/api/...) on Vercel
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.DEV ? 'http://localhost:8000' : '');
 const SEARCH_HISTORY_KEY = 'crossword_solver_history';
 const MAX_HISTORY_ITEMS = 20;
 
@@ -150,7 +153,11 @@ function App() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
             <p className="font-medium">Error: {error}</p>
-            <p className="text-sm mt-1">Asegúrate de que el servidor backend esté ejecutándose en http://localhost:8000</p>
+            <p className="text-sm mt-1">
+              {import.meta.env.DEV
+                ? 'Asegúrate de que el servidor backend esté ejecutándose en http://localhost:8000'
+                : 'No se pudo conectar con la API. Inténtalo de nuevo en unos segundos.'}
+            </p>
           </div>
         )}
         <ResultsList results={results} isSearching={isSearching} searchMode={currentSearchMode} />

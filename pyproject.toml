@@ -1,0 +1,23 @@
+[project]
+name = "spanish-crossword-solver"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "spacy>=3.8.0",
+    "es-core-news-md @ https://github.com/explosion/spacy-models/releases/download/es_core_news_md-3.8.0/es_core_news_md-3.8.0-py3-none-any.whl",
+    "google>=3.0.0",
+    "wikipedia>=1.4.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.0.0",
+]
+
+[tool.vercel]
+entrypoint = "backend.api:app"
+
+[tool.vercel.scripts]
+build = "cd frontend && npm ci && npm run build && rm -rf ../public && mkdir -p ../public && cp -r dist/. ../public/"

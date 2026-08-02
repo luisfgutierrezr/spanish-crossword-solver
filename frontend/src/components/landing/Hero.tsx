@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle, Search } from 'lucide-react';
 
 interface HeroProps {
   onGetStarted: () => void;
