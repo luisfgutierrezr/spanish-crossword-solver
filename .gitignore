@@ -14,10 +14,9 @@ frontend/dist/
 frontend/.vite/
 frontend/*.log
 
-# Vercel / build output
+# Vercel / build output (generated on deploy from frontend/dist)
 .vercel
-public/*
-!public/.gitkeep
+public/
 
 # IDE
 .idea/
