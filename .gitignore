@@ -22,3 +22,6 @@ frontend/*.log
 # OS
 .DS_Store
 Thumbs.db
+
+app-design.md
+landing-page-design.md

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { SearchBar } from './components/SearchBar';
 import { ResultsList } from './components/ResultsList';
 import { Header } from './components/Header';
+import { Landing } from './components/landing/Landing';
 
 type SearchMode = 'pattern' | 'definition';
+type AppView = 'landing' | 'solver';
 
 interface WordResult {
   word: string;
@@ -25,6 +27,7 @@ const SEARCH_HISTORY_KEY = 'crossword_solver_history';
 const MAX_HISTORY_ITEMS = 20;
 
 function App() {
+  const [view, setView] = useState<AppView>('landing');
   const [results, setResults] = useState<WordResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +123,15 @@ function App() {
       setIsSearching(false);
     }
   };
+
+  const goToSolver = () => {
+    setView('solver');
+    window.scrollTo(0, 0);
+  };
+
+  if (view === 'landing') {
+    return <Landing onGetStarted={goToSolver} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50">
