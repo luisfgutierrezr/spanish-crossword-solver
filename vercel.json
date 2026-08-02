@@ -3,7 +3,8 @@
   "functions": {
     "backend/api.py": {
       "maxDuration": 60,
-      "excludeFiles": "{venv/**,frontend/**,diccionario_rae/**,.git/**,.cursor/**,.vscode/**,**/*.md,**/__pycache__/**,crossword-words.csv,spanish_dictionary.csv,spanish_words.txt}"
+      "includeFiles": "static/**",
+      "excludeFiles": "{venv/**,frontend/**,diccionario_rae/**,.git/**,.cursor/**,.vscode/**,**/*.md,**/__pycache__/**,crossword-words.csv,spanish_dictionary.csv,spanish_words.txt,public/**}"
     }
   }
 }

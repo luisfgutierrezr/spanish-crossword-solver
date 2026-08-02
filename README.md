@@ -157,7 +157,9 @@ See http://localhost:8000/docs for interactive API documentation.
 
 ## Deploy on Vercel
 
-This project deploys as a single Vercel app: FastAPI serves `/api/*`, and the Vite frontend is built into `public/`.
+This project deploys as a single Vercel app: FastAPI serves `/api/*` and the Vite SPA from `static/`.
+
+> **Important:** On Vercel, files in `public/` are CDN-only and **not** readable by the Python function. The frontend must be built into `static/` (see `frontend/vite.config.ts`).
 
 ### Prerequisites
 

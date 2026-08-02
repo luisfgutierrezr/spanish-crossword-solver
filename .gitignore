@@ -14,9 +14,12 @@ frontend/dist/
 frontend/.vite/
 frontend/*.log
 
-# Vercel / build output (generated on deploy from frontend/dist)
+# Vercel / build output
 .vercel
 public/
+# Keep static/ tracked after local `npm run build` so deploys always have the SPA.
+# On Vercel the build script refreshes it; ignore only node junk under it.
+static/.vite/
 
 # IDE
 .idea/

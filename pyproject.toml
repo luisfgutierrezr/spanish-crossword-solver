@@ -20,5 +20,5 @@ dependencies = [
 entrypoint = "backend.api:app"
 
 [tool.vercel.scripts]
-# Copy Vite output into public/ without deleting the directory (Vercel tracks files like .gitkeep)
-build = "cd frontend && npm ci && npm run build && mkdir -p ../public && cp -r dist/. ../public/"
+# Build Vite into ../static (included in the Python function bundle — not public/)
+build = "cd frontend && npm ci && npm run build"

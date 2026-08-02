@@ -191,22 +191,31 @@ async def solve_by_definition(request: DefinitionSearchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error solving by definition: {str(e)}")
 
-# Serve the Vite build from public/ (used on Vercel). Keep API routes above this.
-_frontend_dir = parent_dir / "public"
-if (_frontend_dir / "index.html").exists():
-    if hasattr(app, "frontend"):
-        app.frontend("/", directory=str(_frontend_dir), fallback="index.html")
-    else:
-        from fastapi.responses import FileResponse
-        from fastapi.staticfiles import StaticFiles
+# Serve the Vite SPA from static/ (must live inside the function bundle on Vercel).
+# Do NOT use public/ — Vercel moves that to CDN and the Python runtime cannot read it.
+# API routes above take precedence; mount last.
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-        assets_dir = _frontend_dir / "assets"
-        if assets_dir.exists():
-            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+_static_dir = parent_dir / "static"
+_index_html = _static_dir / "index.html"
 
-        @app.get("/")
-        async def spa_root():
-            return FileResponse(_frontend_dir / "index.html")
+
+@app.get("/")
+async def spa_index():
+    if not _index_html.is_file():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Frontend build missing. "
+                f"Expected {_index_html.resolve() if _static_dir.exists() else _index_html}."
+            ),
+        )
+    return FileResponse(_index_html, media_type="text/html")
+
+
+if _static_dir.is_dir():
+    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="spa")
 
 if __name__ == "__main__":
     import uvicorn
