@@ -69,11 +69,6 @@ class SolveResponse(BaseModel):
     results: List[WordResult]
     pattern: str
 
-@app.get("/")
-async def root():
-    """Health check endpoint."""
-    return {"message": "Spanish Crossword Solver API", "status": "running"}
-
 @app.get("/health")
 async def health():
     """Health check endpoint."""
@@ -195,6 +190,23 @@ async def solve_by_definition(request: DefinitionSearchRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error solving by definition: {str(e)}")
+
+# Serve the Vite build from public/ (used on Vercel). Keep API routes above this.
+_frontend_dir = parent_dir / "public"
+if (_frontend_dir / "index.html").exists():
+    if hasattr(app, "frontend"):
+        app.frontend("/", directory=str(_frontend_dir), fallback="index.html")
+    else:
+        from fastapi.responses import FileResponse
+        from fastapi.staticfiles import StaticFiles
+
+        assets_dir = _frontend_dir / "assets"
+        if assets_dir.exists():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+        @app.get("/")
+        async def spa_root():
+            return FileResponse(_frontend_dir / "index.html")
 
 if __name__ == "__main__":
     import uvicorn
