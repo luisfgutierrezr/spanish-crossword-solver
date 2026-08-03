@@ -1,105 +1,94 @@
-import { ArrowRight, CheckCircle, Search } from 'lucide-react';
+import { ArrowRight, BookOpen } from 'lucide-react';
 
 interface HeroProps {
   onGetStarted: () => void;
 }
 
+const GRID = [
+  ['C', 'A', 'S', 'A', '', 'S', 'O', 'L'],
+  ['', '', 'O', '', '', 'O', '', 'U'],
+  ['L', 'U', 'N', 'A', '', 'L', '', 'N'],
+  ['', '', '', 'R', '', '', '', ''],
+  ['M', 'A', 'R', '', 'R', 'I', 'O', ''],
+  ['', '', 'O', '', 'A', '', '', ''],
+  ['P', 'A', 'Z', '', 'E', '', '', ''],
+];
+
 export function Hero({ onGetStarted }: HeroProps) {
   return (
-    <section className="relative pt-24 pb-20 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-amber-100/40 to-transparent pointer-events-none" />
-      <div className="absolute -top-20 -right-20 w-96 h-96 bg-amber-200/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 -left-20 w-80 h-80 bg-orange-200/15 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="lg:grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-
-            <h1 className="text-5xl lg:text-6xl font-bold leading-tight text-gray-900">
-              Resuelve tus{' '}
-              <span className="bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
-                crucigramas
-              </span>
-            </h1>
-
-            <p className="text-xl text-gray-700/70 max-w-lg">
-              Encuentra la palabra exacta con patrones, pistas o definiciones.
-              Diseñado para crucigramas en español.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={onGetStarted}
-                className="group inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white px-8 py-4 rounded-xl font-semibold shadow-lg hover:shadow-2xl hover:-translate-y-1 hover:scale-105 transition-all duration-300"
-              >
-                Empezar a buscar
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-              <a
-                href="#features"
-                className="inline-flex items-center justify-center gap-2 bg-white/50 backdrop-blur-sm text-gray-900 border border-amber-200/40 px-8 py-4 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-              >
-                Ver funciones
-              </a>
-            </div>
-
-            <div className="flex flex-wrap gap-4 pt-2">
-              <div className="flex items-center gap-2 text-sm text-gray-700/80">
-                <CheckCircle className="w-4 h-4 text-amber-600" />
-                Búsqueda por patrón
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-700/80">
-                <CheckCircle className="w-4 h-4 text-amber-600" />
-                Búsqueda semántica
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-12 lg:mt-0 relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-200/30 to-orange-200/20 rounded-3xl blur-xl" />
-            <div className="relative bg-white/40 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-amber-200/30">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Búsqueda rápida</h3>
-                <span className="flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-100/80 px-2.5 py-1 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  Listo
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 border border-amber-100/50">
-                  <p className="text-xs font-medium text-gray-500 mb-1.5">Patrón</p>
-                  <p className="font-mono text-2xl tracking-widest text-gray-900">C _ S _</p>
+    <section className="relative min-h-[100svh] flex flex-col overflow-hidden bg-gradient-to-br from-amber-100/50 via-white to-orange-100/40">
+      <div
+        className="pointer-events-none absolute -top-24 -left-24 w-[28rem] h-[28rem] rounded-full bg-gradient-to-br from-amber-300/25 to-orange-400/15 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute bottom-0 right-0 w-[32rem] h-[32rem] rounded-full bg-gradient-to-tl from-orange-400/20 to-amber-200/10 blur-3xl"
+        aria-hidden
+      />
+      {/* Crossword grid as full-bleed atmosphere */}
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-end opacity-[0.12] sm:opacity-[0.18]"
+        aria-hidden
+      >
+        <div className="mr-[-5%] sm:mr-[5%] lg:mr-[8%] grid gap-1 rotate-[-6deg] scale-110 sm:scale-125">
+          {GRID.map((row, ri) => (
+            <div key={ri} className="flex gap-1">
+              {row.map((cell, ci) => (
+                <div
+                  key={`${ri}-${ci}`}
+                  className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-sm sm:text-base font-bold ${
+                    cell
+                      ? 'bg-white border-2 border-gray-900 text-gray-900'
+                      : 'bg-gray-900'
+                  }`}
+                >
+                  {cell}
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { word: 'CASA', score: '98%' },
-                    { word: 'CASO', score: '91%' },
-                    { word: 'COSA', score: '87%' },
-                    { word: 'CIMA', score: '72%' },
-                  ].map((item) => (
-                    <div
-                      key={item.word}
-                      className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-amber-100/50 hover:border-amber-400/40 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Search className="w-3.5 h-3.5 text-amber-600" />
-                        <span className="font-semibold text-gray-900">{item.word}</span>
-                      </div>
-                      <div className="h-1.5 bg-amber-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full"
-                          style={{ width: item.score }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ))}
             </div>
-          </div>
+          ))}
         </div>
+      </div>
+
+      <header className="relative z-10 flex items-center justify-between px-5 sm:px-8 lg:px-12 py-5">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-md">
+            <BookOpen className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-lg font-bold text-gray-900">
+            Solucionador de Crucigramas
+          </span>
+        </div>
+        <button
+          onClick={onGetStarted}
+          className="text-sm font-semibold text-amber-700 hover:text-orange-700 transition-colors"
+        >
+          Ir al buscador →
+        </button>
+      </header>
+
+      <div className="relative z-10 flex-1 flex flex-col justify-center px-5 sm:px-8 lg:px-12 pb-16 max-w-3xl">
+        <p className="text-sm font-semibold uppercase tracking-widest text-amber-700 mb-4">
+          Español · Patrones · Definiciones
+        </p>
+        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-[1.05] mb-6">
+          La palabra que falta,
+          <br />
+          <span className="bg-gradient-to-r from-amber-500 to-orange-600 bg-clip-text text-transparent">
+            encontrada.
+          </span>
+        </h1>
+        <p className="text-lg sm:text-xl text-gray-600 max-w-md mb-10 leading-relaxed">
+          Introduce lo que ya sabes del crucigrama y obtén candidatos
+          ordenados por relevancia.
+        </p>
+        <button
+          onClick={onGetStarted}
+          className="group self-start inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold py-3.5 px-7 rounded-lg shadow-md hover:shadow-lg hover:from-amber-600 hover:to-orange-700 transition-all"
+        >
+          Abrir el buscador
+          <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+        </button>
       </div>
     </section>
   );

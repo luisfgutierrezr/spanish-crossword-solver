@@ -132,13 +132,18 @@ function App() {
     window.scrollTo(0, 0);
   };
 
+  const goToLanding = () => {
+    setView('landing');
+    window.scrollTo(0, 0);
+  };
+
   if (view === 'landing') {
     return <Landing onGetStarted={goToSolver} />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50">
-      <Header />
+      <Header onBackHome={goToLanding} />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <SearchBar 
           onSearch={handleSearch} 
